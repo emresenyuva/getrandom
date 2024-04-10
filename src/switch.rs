@@ -1,10 +1,19 @@
 //! Implementation for Nintendo Switch
-use crate::util_libc::sys_fill_exact;
 use crate::Error;
-use core::mem::MaybeUninit;
+use core::{ffi::c_void, mem::MaybeUninit};
+
+extern "C" {
+    fn randomGet(buf: *mut c_void, len: usize);
+}
 
 pub fn getrandom_inner(dest: &mut [MaybeUninit<u8>]) -> Result<(), Error> {
-    sys_fill_exact(dest, |buf| unsafe {
-        libc::getrandom(buf.as_mut_ptr() as *mut libc::c_void, buf.len(), 0)
-    })
+    // Not that NOT enabling WiFi, BT, or the voltage noise entropy source (via `bootloader_random_enable`)
+    // will cause ESP-IDF to return pseudo-random numbers based on the voltage noise entropy, after the initial boot process:
+    // https://docs.espressif.com/projects/esp-idf/en/latest/esp32/api-reference/system/random.html
+    //
+    // However tracking if some of these entropy sources is enabled is way too difficult to implement here
+    unsafe { randomGet(dest.as_mut_ptr().cast(), dest.len()) };
+
+    Ok(())
 }
+
